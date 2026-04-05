@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מערכת ניתוח תעודות כיול — בנטל תעשיות</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f5f4f0;
+    --surface: #ffffff;
+    --border: #e0ddd6;
+    --border-strong: #c8c4bb;
+    --text: #1a1916;
+    --text-muted: #6b6860;
+    --text-light: #9e9b94;
+    --accent: #1a4a8a;
+    --accent-light: #e8eef7;
+    --success: #1a6b3a;
+    --success-light: #e8f5ed;
+    --warning: #8a5a00;
+    --warning-light: #fef7e8;
+    --danger: #8a1a1a;
+    --danger-light: #fde8e8;
+    --radius: 10px;
+    --radius-lg: 14px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+  }
+
+  body {
+    font-family: 'Heebo', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* Header */
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 60px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-title { font-size: 16px; font-weight: 600; color: var(--text); }
+  .header-sub { font-size: 12px; color: var(--text-muted); }
+  .header-stats { display: flex; gap: 1.5rem; }
+  .hstat { text-align: center; }
+  .hstat-num { font-size: 18px; font-weight: 600; color: var(--accent); }
+  .hstat-label { font-size: 11px; color: var(--text-muted); }
+
+  /* Layout */
+  .layout { display: grid; grid-template-columns: 340px 1fr; gap: 0; min-height: calc(100vh - 60px); }
+
+  /* Sidebar */
+  .sidebar {
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 60px);
+    position: sticky;
+    top: 60px;
+  }
+
+  .sidebar-top {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Upload zone */
+  .upload-zone {
+    border: 2px dashed var(--border-strong);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--bg);
+    margin-bottom: 0.75rem;
+  }
+  .upload-zone:hover, .upload-zone.drag { border-color: var(--accent); background: var(--accent-light); }
+  .upload-zone input { display: none; }
+  .upload-icon { font-size: 28px; margin-bottom: 6px; }
+  .upload-title { font-size: 13px; font-weight: 500; color: var(--text); }
+  .upload-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+  .analyze-btn {
+    width: 100%;
+    padding: 10px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    font-family: 'Heebo', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .analyze-btn:hover { opacity: 0.9; }
+  .analyze-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Progress */
+  .progress-wrap { margin-top: 0.75rem; display: none; }
+  .progress-bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin-bottom: 4px; }
+  .progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.3s; width: 0%; }
+  .progress-text { font-size: 11px; color: var(--text-muted); text-align: center; }
+
+  /* Search */
+  .search-wrap { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); }
+  .search-input {
+    width: 100%;
+    padding: 7px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-family: 'Heebo', sans-serif;
+    font-size: 13px;
+    background: var(--bg);
+    color: var(--text);
+    outline: none;
+  }
+  .search-input:focus { border-color: var(--accent); }
+
+  /* Filter tabs */
+  .filter-tabs { display: flex; gap: 4px; padding: 0.5rem 1rem; border-bottom: 1px solid var(--border); }
+  .ftab {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    font-family: 'Heebo', sans-serif;
+    transition: all 0.15s;
+  }
+  .ftab.active { background: var(--accent); color: white; border-color: var(--accent); }
+
+  /* Tool list */
+  .tool-list { flex: 1; overflow-y: auto; padding: 0.5rem; }
+
+  .tool-item {
+    padding: 10px 12px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: background 0.1s;
+    border: 1px solid transparent;
+    margin-bottom: 2px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .tool-item:hover { background: var(--bg); }
+  .tool-item.active { background: var(--accent-light); border-color: var(--accent); }
+
+  .tool-status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: var(--border-strong);
+  }
+  .tool-status-dot.done { background: var(--success); }
+  .tool-status-dot.loading { background: var(--warning); animation: pulse 1s infinite; }
+  .tool-status-dot.error { background: var(--danger); }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  .tool-info { flex: 1; min-width: 0; }
+  .tool-id { font-size: 13px; font-weight: 500; color: var(--text); }
+  .tool-mf { font-size: 11px; color: var(--text-muted); }
+  .tool-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 500;
+    flex-shrink: 0;
+  }
+  .tool-badge.matched { background: var(--success-light); color: var(--success); }
+  .tool-badge.unmatched { background: var(--bg); color: var(--text-light); border: 1px solid var(--border); }
+
+  /* Main content */
+  .main { padding: 1.5rem; overflow-y: auto; }
+
+  /* Welcome screen */
+  .welcome {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
+    text-align: center;
+    color: var(--text-muted);
+  }
+  .welcome-icon { font-size: 48px; margin-bottom: 1rem; opacity: 0.4; }
+  .welcome-title { font-size: 18px; font-weight: 500; color: var(--text); margin-bottom: 0.5rem; }
+  .welcome-sub { font-size: 13px; max-width: 380px; line-height: 1.7; }
+
+  /* Detail card */
+  .detail-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    box-shadow: var(--shadow);
+  }
+
+  .detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .detail-tool-id { font-size: 22px; font-weight: 600; color: var(--text); }
+  .detail-desc { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+  .detail-mf {
+    font-size: 12px;
+    background: var(--accent-light);
+    color: var(--accent);
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-weight: 500;
+  }
+
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem; }
+  .detail-field { }
+  .detail-label { font-size: 11px; color: var(--text-muted); margin-bottom: 2px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.03em; }
+  .detail-value { font-size: 14px; color: var(--text); font-weight: 500; }
+
+  /* Deviation */
+  .deviation-section {
+    background: var(--warning-light);
+    border: 1px solid #e8d0a0;
+    border-radius: var(--radius);
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+  .deviation-title { font-size: 12px; font-weight: 600; color: var(--warning); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .deviation-text { font-size: 13px; color: var(--text); line-height: 1.7; }
+
+  /* Message */
+  .message-section { margin-bottom: 1rem; }
+  .message-label { font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .message-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem;
+    font-size: 13px;
+    line-height: 1.8;
+    color: var(--text);
+    white-space: pre-line;
+    font-family: 'Heebo', sans-serif;
+  }
+
+  .action-row { display: flex; gap: 8px; }
+  .action-btn {
+    padding: 8px 16px;
+    border-radius: var(--radius);
+    font-family: 'Heebo', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    transition: all 0.15s;
+  }
+  .action-btn:hover { background: var(--bg); }
+  .action-btn.primary { background: var(--accent); color: white; border-color: var(--accent); }
+  .action-btn.primary:hover { opacity: 0.9; }
+  .action-btn.success-state { color: var(--success); border-color: var(--success); }
+
+  /* Unmatched files panel */
+  .unmatched-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+  }
+  .unmatched-title { font-size: 13px; font-weight: 500; margin-bottom: 0.5rem; color: var(--warning); }
+  .unmatched-list { font-size: 12px; color: var(--text-muted); line-height: 1.8; }
+
+  /* Loading state */
+  .analyzing-state {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+  .spinner {
+    width: 24px; height: 24px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 0.75rem;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div>
+    <div class="header-title">מערכת ניתוח תעודות כיול</div>
+    <div class="header-sub">בנטל תעשיות בע"מ</div>
+  </div>
+  <div class="header-stats">
+    <div class="hstat"><div class="hstat-num" id="stat-total">108</div><div class="hstat-label">סה"כ כלים</div></div>
+    <div class="hstat"><div class="hstat-num" id="stat-matched">0</div><div class="hstat-label">תועדות הועלו</div></div>
+    <div class="hstat"><div class="hstat-num" id="stat-analyzed">0</div><div class="hstat-label">נותחו</div></div>
+  </div>
+</header>
+
+<div class="layout">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-top">
+      <div class="upload-zone" id="drop-zone" onclick="document.getElementById('file-input').click()"
+           ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropFiles(event)">
+        <input type="file" id="file-input" multiple accept=".pdf" onchange="handleFiles(event)">
+        <div class="upload-icon">📂</div>
+        <div class="upload-title">גרור תעודות PDF לכאן</div>
+        <div class="upload-sub">או לחץ לבחירת קבצים — ניתן לבחור 108 בבת אחת</div>
+      </div>
+      <button class="analyze-btn" id="analyze-btn" onclick="analyzeAll()" disabled>
+        נתח את כל התעודות
+      </button>
+      <div class="progress-wrap" id="progress-wrap">
+        <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+        <div class="progress-text" id="progress-text">מנתח...</div>
+      </div>
+    </div>
+
+    <div class="search-wrap">
+      <input class="search-input" type="text" placeholder="חיפוש לפי כלי, MF..." oninput="filterList()" id="search-input">
+    </div>
+
+    <div class="filter-tabs">
+      <button class="ftab active" onclick="setFilter('all',this)">הכל</button>
+      <button class="ftab" onclick="setFilter('matched',this)">הועלו</button>
+      <button class="ftab" onclick="setFilter('analyzed',this)">נותחו</button>
+      <button class="ftab" onclick="setFilter('pending',this)">ממתינים</button>
+    </div>
+
+    <div class="tool-list" id="tool-list"></div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main" id="main-content">
+    <div class="welcome">
+      <div class="welcome-icon">🗂️</div>
+      <div class="welcome-title">העלי את תעודות הכיול</div>
+      <div class="welcome-sub">גרור את כל קבצי ה-PDF לאזור ההעלאה משמאל. המערכת תזהה אוטומטית לאיזה כלי שייכת כל תעודה לפי שם הקובץ, ותנתח את החריגה.</div>
+    </div>
+  </main>
+</div>
+
+<script>
+const TOOLS = [{"tool":"E-0058","desc":"High Voltage Megohmmetr EXTECH 380 מג\"ר","date":"11/02/2025","mf":"MF250000280"},{"tool":"B10-94","desc":"מדיד הברגה UNF 2B 6-40 HC GNG PLUG","date":"23/02/2025","mf":"MF250000259"},{"tool":"B10-231","desc":"מדיד הברגה M2X0.4 6H GNG PLUG","date":"25/02/2025","mf":"MF250000258"},{"tool":"B10-17","desc":"מדיד הברגה UNC 2B 5-40 GNG PLUG","date":"15/02/2026","mf":"MF250000257"},{"tool":"B10-112","desc":"מדיד הברגה M4X0.7 6H GNG PLUG","date":"25/02/2025","mf":"MF250000256"},{"tool":"B10-137","desc":"מדיד הברגה M5X0.8 6H +0.01 GNG PLUG","date":"17/02/2025","mf":"MF250000255"},{"tool":"B10-206","desc":"מדיד הברגה M3X0.5 6H HC GNG PLUG","date":"25/02/2025","mf":"MF250000254"},{"tool":"B10-174","desc":"מדיד הברגה UNC 2B 3/8-16 HC GNG PLUG","date":"17/02/2025","mf":"MF250000253"},{"tool":"B10-71","desc":"מדיד הברגה UNF 2B 3/8-24 HC GNG PLUG","date":"17/02/2025","mf":"MF250000252"},{"tool":"B10-237","desc":"מדיד הברגה M3X0.5 6H GNG PLUG","date":"25/02/2025","mf":"MF250000251"},{"tool":"B10-228","desc":"מדיד הברגה M2X0.4 6H GNG PLUG","date":"25/02/2025","mf":"MF250000250"},{"tool":"B10-157","desc":"מדיד הברגה UNC 2B 2-56 GNG PLUG","date":"23/02/2025","mf":"MF250000249"},{"tool":"B10-189","desc":"מדיד הברגה M6X1 6H HC GNG PLUG","date":"25/02/2025","mf":"MF250000247"},{"tool":"B10-202","desc":"מדיד הברגה UNF 2B 3/8-24 GNG PLUG","date":"17/02/2025","mf":"MF250000246"},{"tool":"B10-179","desc":"מדיד הברגה UNF 2B 6-40 GNG PLUG","date":"23/02/2025","mf":"MF250000245"},{"tool":"B10-97","desc":"מדיד הברגה M6X1 6H LH GNG PLUG","date":"17/02/2025","mf":"MF250000243"},{"tool":"B10-52","desc":"מדיד הברגה M6X1 6H GNG PLUG","date":"25/02/2025","mf":"MF250000242"},{"tool":"B10-57","desc":"מדיד הברגה UNF 2B 3/8-24 GNG PLUG","date":"17/02/2025","mf":"MF250000241"},{"tool":"B10-56","desc":"מדיד הברגה UNC 2B 8-32 HC GNG PLUG","date":"25/02/2025","mf":"MF250000239"},{"tool":"B10-89","desc":"מדיד הברגה UNC 2B 8-32 GNG PLUG","date":"25/02/2025","mf":"MF250000238"},{"tool":"B10-121","desc":"מדיד הברגה UNC 2B 5/8-11 GNG PLUG","date":"18/02/2025","mf":"MF250000237"},{"tool":"B10-148","desc":"מדיד הברגה M14X1 6H GNG","date":"17/02/2025","mf":"MF250000236"},{"tool":"B10-152","desc":"מדיד הברגה M16X0.5 6H GNG","date":"17/02/2025","mf":"MF250000235"},{"tool":"B10-04","desc":"מדיד הברגה UNC 2B 6-32 GNG PLUG","date":"25/02/2025","mf":"MF250000234"},{"tool":"B12-27","desc":"טבעת הברגה GO M6X1 6g","date":"19/02/2025","mf":"MF263000069"},{"tool":"B12-18","desc":"טבעת הברגה NOT GO M16X0.5 6g","date":"20/02/2025","mf":"MF253000189"},{"tool":"B17-36","desc":"TorqueVario-S","date":"17/02/2025","mf":"MF253000190"},{"tool":"B12-066","desc":"טבעת הברגה GO 8-32 UNC 2A","date":"20/02/2025","mf":"MF253000191"},{"tool":"B12-045","desc":"טבעת הברגה GO M6X0.5 6g","date":"20/02/2025","mf":"MF253000192"},{"tool":"B17-28","desc":"מברג פיתול TORQUE SCREWDRIVER","date":"18/02/2026","mf":"MF263000070"},{"tool":"B17-35","desc":"כלי מומנט ידני","date":"18/02/2026","mf":"MF263000071"},{"tool":"B17-46","desc":"מברג פיתול TORQUE SCREWDRIVER","date":"18/02/2026","mf":"MF263000072"},{"tool":"B10-175","desc":"מדיד הברגה H.C. M4x0.7 6H","date":"31/03/2025","mf":"MF253000193"},{"tool":"B10-139","desc":"מדיד הברגה M4x0.7 6H","date":"31/03/2025","mf":"MF253000194"},{"tool":"B10-217","desc":"מדיד הברגה 4-40UNC 2B","date":"31/03/2025","mf":"MF253000195"},{"tool":"B10-53","desc":"מדיד הברגה H.C. M6x1 6H","date":"31/03/2025","mf":"MF253000196"},{"tool":"E-0510","desc":"מד משיכת פינים Mark-10 WT3-201","date":"24/08/2025","mf":"MF253000197"},{"tool":"B12-10-NG","desc":"טבעת הברגה NOT GO 6-32 UNC 2A","date":"14/05/2025","mf":"MF253000198"},{"tool":"B5-0065","desc":"חוגן מכני ETALON","date":"18/05/2025","mf":"MF253000199"},{"tool":"B17-19","desc":"מפתח פיתול Torque Wrench","date":"18/02/2026","mf":"MF263000073"},{"tool":"B12-30","desc":"טבעת הברגה GO M14X1 6g","date":"15/05/2025","mf":"MF253000200"},{"tool":"B10-58","desc":"מדיד הברגה 6-32UNC 2B","date":"31/03/2025","mf":"MF253000201"},{"tool":"B11-700","desc":"טבעת הברגה 1/4-28UNF 2A Go","date":"09/07/2025","mf":"MF253000202"},{"tool":"B12-064","desc":"טבעת הברגה 1/4-28UNF 2A Notgo","date":"09/07/2025","mf":"MF253000203"},{"tool":"E-1405","desc":"מד טמפ ולחות","date":"09/07/2025","mf":"MF253000204"},{"tool":"B12-10","desc":"טבעת הברגה NOT GO 6-32 UNC 2A","date":"05/11/2025","mf":"MF253000205"},{"tool":"B10-220","desc":"מדיד הברגה M4x0.7 6H","date":"05/08/2025","mf":"MF253000206"},{"tool":"B5-50","desc":"חוגן מכאני 25 mm","date":"12/02/2026","mf":"MF263000074"},{"tool":"B10-242","desc":"מדיד הברגה M2X0.4 6H","date":"05/08/2025","mf":"MF253000207"},{"tool":"B10-21","desc":"מדיד הברגה M12X0.35 6H FERTER","date":"15/02/2026","mf":"MF263000075"},{"tool":"B5-20","desc":"חוגן מכאני 50 mm","date":"22/02/2026","mf":"MF263000076"},{"tool":"B17-37","desc":"TorqueVario-S","date":"17/02/2025","mf":"MF253000208"},{"tool":"B10-254","desc":"מדיד הברגה M12x0.35 6H","date":"15/02/2026","mf":"MF263000077"},{"tool":"B10-270","desc":"מדיד הברגה M3x0.5 6H","date":"15/02/2026","mf":"MF263000078"},{"tool":"B17-68","desc":"tool torque Hand GEDORE 1-6 Nm","date":"18/01/2026","mf":"MF263000079"},{"tool":"B10-60","desc":"מדיד הברגה M15X1 6H GNG PLUG","date":"15/02/2026","mf":"MF263000080"},{"tool":"B17-47","desc":"מברג פיתול TORQUE SCREWDRIVER","date":"18/02/2026","mf":"MF263000081"},{"tool":"B12-38","desc":"טבעת הברגה NOT GO M6X1 6g","date":"19/02/2025","mf":"MF253000209"},{"tool":"B10-245","desc":"מדיד הברגה M3x0.5 6H","date":"05/08/2025","mf":"MF253000210"},{"tool":"B12-065","desc":"טבעת הברגה Go 1/4-28 UNF 2A","date":"05/08/2025","mf":"MF253000211"},{"tool":"B12-069","desc":"טבעת הברגה NotGo M6X1 6h LH","date":"05/08/2025","mf":"MF253000212"},{"tool":"B12-070","desc":"טבעת הברגה Go M6X1 6h LH","date":"05/08/2025","mf":"MF253000213"},{"tool":"B12-21","desc":"טבעת הברגה NotGo M5X0.8 6g","date":"05/08/2025","mf":"MF253000214"},{"tool":"B12-22","desc":"טבעת הברגה Go M5X0.8 6g","date":"05/08/2025","mf":"MF253000215"},{"tool":"B12-54","desc":"טבעת הברגה NotGo M6X0.5 6g","date":"05/08/2025","mf":"MF253000216"},{"tool":"B10-09","desc":"מדיד הברגה H.C. 1/4-20UNC 2B","date":"06/08/2025","mf":"MF253000217"},{"tool":"B10-238","desc":"מדיד הברגה M5x0.8 6H","date":"06/08/2025","mf":"MF253000218"},{"tool":"B10-79","desc":"מדיד הברגה H.C. M5x0.8 6H","date":"06/08/2025","mf":"MF253000219"},{"tool":"B12-055","desc":"טבעת הברגה Go M12X0.5 4h","date":"06/08/2025","mf":"MF253000220"},{"tool":"B12-060","desc":"טבעת הברגה NOT GO 1.13/16-20 UNF 2A","date":"06/08/2025","mf":"MF253000221"},{"tool":"B12-061","desc":"טבעת הברגה GO 1.13/16-20 UNF 2A","date":"06/08/2025","mf":"MF253000222"},{"tool":"B12-062","desc":"טבעת הברגה NotGo 3/8-24 UNF 2A","date":"06/08/2025","mf":"MF253000223"},{"tool":"B12-063","desc":"טבעת הברגה NotGo 1/4-28 UNF 2A","date":"06/08/2025","mf":"MF253000224"},{"tool":"B12-067","desc":"טבעת הברגה Go 1/4-20 UNC 2A","date":"06/08/2025","mf":"MF253000225"},{"tool":"B12-068","desc":"טבעת הברגה NotGo 1/4-20 UNC 2A","date":"06/08/2025","mf":"MF253000226"},{"tool":"B12-23","desc":"טבעת הברגה Go M38X1.5 6g","date":"06/08/2025","mf":"MF253000227"},{"tool":"B12-24","desc":"טבעת הברגה NotGo M38X1.5 6g","date":"06/08/2025","mf":"MF253000228"},{"tool":"B14-24","desc":"מד לחץ Power","date":"17/06/2025","mf":"MF253000229"},{"tool":"B10-127","desc":"מדיד הברגה M2X0.4 6H GNG PLUG","date":"25/02/2025","mf":"MF253000230"},{"tool":"B10-119","desc":"מדיד הברגה M2.5x0.45 6H","date":"05/08/2025","mf":"MF253000231"},{"tool":"B12-057","desc":"טבעת הברגה GO 1/4-28 UNF 2A","date":"20/02/2025","mf":"MF253000232"},{"tool":"B12-45","desc":"טבעת הברגה NOT GO 1/4-28 UNF 2A","date":"20/02/2025","mf":"MF253000233"},{"tool":"B1-44","desc":"מברג מומנט 2852 wiha","date":"03/11/2025","mf":"MF253000234"},{"tool":"B11-56","desc":"מדיד חלק טבעת mm 87.4980","date":"13/11/2025","mf":"MF253000235"},{"tool":"B17-29","desc":"מברג טורקמטר 0.2-1.2 Nm","date":"04/11/2025","mf":"MF253000236"},{"tool":"B10-85","desc":"מדיד הברגה M2.5X0.45 6H GNG PLUG","date":"15/02/2026","mf":"MF263000082"},{"tool":"B10-102","desc":"מדיד הברגה UNF 2B 5/8-18 GNG PLUG","date":"15/02/2026","mf":"MF263000083"},{"tool":"B10-01","desc":"מדיד הברגה 8-32UNC 2B","date":"15/02/2026","mf":"MF263000084"},{"tool":"B11-01","desc":"מדיד חלק טבעת 165.002mm","date":"08/02/2026","mf":"MF263000085"},{"tool":"B12-44","desc":"טבעת הברגה NOT GO 3/8-24 UNF 2A","date":"28/01/2026","mf":"MF263000086"},{"tool":"B10-143","desc":"מדיד הברגה UNF 3/8-24 2B+0.02 GNG PLUG","date":"15/02/2026","mf":"MF263000087"},{"tool":"E-0303","desc":"extech 445703 מד טמפרטורת סביבה","date":"10/02/2026","mf":"MF263000088"},{"tool":"B10-07","desc":"מדיד הברגה 10-32UNF 2B","date":"15/02/2026","mf":"MF263000089"},{"tool":"B10-50","desc":"מדיד הברגה 3/8-24UNF 2B","date":"15/02/2026","mf":"MF263000090"},{"tool":"B2-54","desc":"מיקרומטר צלחות 75-100 mm","date":"30/01/2026","mf":"MF263000091"},{"tool":"B10-280","desc":"מדיד פלאג 3/8-24UNF-2B H.C GO NO-GO","date":"15/02/2026","mf":"MF263000092"},{"tool":"E-1003","desc":"מד לחות טמפרטורה","date":"29/01/2026","mf":"MF263000093"},{"tool":"B10-167","desc":"מדיד הברגה UNC 2B 1/4-20 GNG PLUG","date":"15/02/2026","mf":"MF263000094"},{"tool":"B10-186","desc":"מדיד הברגה UNC 2B 1/4-20 GNG PLUG","date":"15/02/2026","mf":"MF263000095"},{"tool":"B12-82","desc":"מדיד הברגה טבעת M6X1 6g GO L.H","date":"28/01/2026","mf":"MF263000096"},{"tool":"B10-195","desc":"מדיד הברגה M6X0.5-6H GNG PLUG","date":"15/02/2026","mf":"MF263000097"},{"tool":"B10-207","desc":"מדיד הברגה M3X0.5 6H HC GNG PLUG","date":"15/02/2026","mf":"MF263000098"},{"tool":"B10-216","desc":"מדיד הברגה UNC 2B 4-40 GNG PLUG","date":"15/02/2026","mf":"MF263000099"},{"tool":"B10-247","desc":"מדיד הברגה H.C. M5x0.8 6H","date":"15/02/2026","mf":"MF263000100"},{"tool":"B10-13","desc":"מדיד הברגה M.4X0.7 6H","date":"15/02/2026","mf":"MF263000101"},{"tool":"B10-12","desc":"מדיד הברגה Plug 3/8-16 UNC 2B","date":"25/02/2025","mf":"MF253000237"},{"tool":"B10-103","desc":"מדיד הברגה M12X0.35 6H Egemet","date":"31/03/2025","mf":"MF253000238"},{"tool":"B10-138","desc":"מדיד הברגה M5x0.8 6H","date":"31/03/2025","mf":"MF253000239"}];
+
+// State
+const state = {};
+TOOLS.forEach(t => state[t.tool] = { ...t, file: null, base64: null, status: 'pending', deviation: null, calDate: null });
+
+let activeFilter = 'all';
+let activeTool = null;
+let unmatchedFiles = [];
+
+// Match file to tool
+function matchFile(filename) {
+  const base = filename.replace(/\.pdf$/i, '').toUpperCase();
+  for (const t of TOOLS) {
+    const tid = t.tool.toUpperCase();
+    if (base.includes(tid) || base.replace(/[^A-Z0-9]/g,'').includes(tid.replace(/[^A-Z0-9]/g,''))) {
+      return t.tool;
+    }
+  }
+  return null;
+}
+
+function toBase64(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result.split(',')[1]);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
+
+async function handleFiles(e) {
+  const files = Array.from(e.target.files);
+  await processFiles(files);
+}
+
+async function processFiles(files) {
+  unmatchedFiles = [];
+  for (const f of files) {
+    if (!f.name.toLowerCase().endsWith('.pdf')) continue;
+    const toolId = matchFile(f.name);
+    if (toolId) {
+      state[toolId].file = f;
+      state[toolId].status = 'matched';
+      state[toolId].base64 = await toBase64(f);
+    } else {
+      unmatchedFiles.push(f.name);
+    }
+  }
+  updateStats();
+  renderList();
+  const matched = TOOLS.filter(t => state[t.tool].file).length;
+  document.getElementById('analyze-btn').disabled = matched === 0;
+}
+
+function dragOver(e) { e.preventDefault(); document.getElementById('drop-zone').classList.add('drag'); }
+function dragLeave() { document.getElementById('drop-zone').classList.remove('drag'); }
+function dropFiles(e) {
+  e.preventDefault();
+  dragLeave();
+  processFiles(Array.from(e.dataTransfer.files));
+}
+
+async function analyzeAll() {
+  const toAnalyze = TOOLS.filter(t => state[t.tool].file && state[t.tool].status !== 'analyzed');
+  if (!toAnalyze.length) return;
+
+  document.getElementById('analyze-btn').disabled = true;
+  const pw = document.getElementById('progress-wrap');
+  pw.style.display = 'block';
+
+  for (let i = 0; i < toAnalyze.length; i++) {
+    const t = toAnalyze[i];
+    state[t.tool].status = 'loading';
+    renderList();
+    if (activeTool === t.tool) showDetail(t.tool);
+
+    const pct = Math.round((i / toAnalyze.length) * 100);
+    document.getElementById('progress-fill').style.width = pct + '%';
+    document.getElementById('progress-text').textContent = `מנתח ${i+1} מתוך ${toAnalyze.length} — ${t.tool}`;
+
+    await analyzePDF(t.tool);
+    updateStats();
+    renderList();
+    if (activeTool === t.tool) showDetail(t.tool);
+  }
+
+  document.getElementById('progress-fill').style.width = '100%';
+  document.getElementById('progress-text').textContent = 'ניתוח הושלם!';
+  setTimeout(() => { pw.style.display = 'none'; }, 3000);
+  document.getElementById('analyze-btn').disabled = false;
+}
+
+async function analyzePDF(toolId) {
+  const s = state[toolId];
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 800,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: s.base64 } },
+            { type: 'text', text: `קרא תעודת כיול זו וענה אך ורק ב-JSON הבא, ללא טקסט נוסף:
+{"calDate":"תאריך הכיול dd/mm/yyyy","deviation":"תיאור קצר של החריגה בעברית — כולל הצד החורג (GO/NGO) וסטייה מספרית אם קיימת. אם הכלי לא עומד במפרט ציין זאת."}` }
+          ]
+        }]
+      })
+    });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error.message);
+    const text = data.content.filter(c => c.type === 'text').map(c => c.text).join('');
+    const parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
+    state[toolId].status = 'analyzed';
+    state[toolId].deviation = parsed.deviation;
+    state[toolId].calDate = parsed.calDate;
+  } catch (err) {
+    state[toolId].status = 'error';
+    state[toolId].deviation = 'שגיאה בניתוח: ' + err.message;
+  }
+}
+
+function updateStats() {
+  document.getElementById('stat-matched').textContent = TOOLS.filter(t => state[t.tool].file).length;
+  document.getElementById('stat-analyzed').textContent = TOOLS.filter(t => state[t.tool].status === 'analyzed').length;
+}
+
+function getNow() {
+  const d = new Date();
+  return d.toLocaleTimeString('he-IL', {hour:'2-digit',minute:'2-digit'}) + ' ' + d.toLocaleDateString('he-IL');
+}
+
+function buildMessage(toolId) {
+  const s = state[toolId];
+  const deviation = s.deviation || 'לא עומד במפרט';
+  const date = s.calDate || s.date;
+  return `תאריך: ${getNow()}
+
+${s.desc} ${s.tool} חזר מכיול עם חריגה ונפסל — ראה דוח כיול בנספחים.
+חריגה: ${deviation}
+יש לבחון את השפעת החריגה על מוצרים שנמדדו בתקופת הספק: מכיול קודם ועד ${date}.
+
+מספר MF: ${s.mf}
+
+בברכה,
+רונית שוורץ
+דוא"ל: ronit_s@bental.co.il`;
+}
+
+function setFilter(f, btn) {
+  activeFilter = f;
+  document.querySelectorAll('.ftab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderList();
+}
+
+function filterList() { renderList(); }
+
+function renderList() {
+  const q = document.getElementById('search-input').value.toLowerCase();
+  const list = document.getElementById('tool-list');
+
+  let tools = TOOLS.filter(t => {
+    const s = state[t.tool];
+    if (activeFilter === 'matched' && !s.file) return false;
+    if (activeFilter === 'analyzed' && s.status !== 'analyzed') return false;
+    if (activeFilter === 'pending' && s.file) return false;
+    if (q && !t.tool.toLowerCase().includes(q) && !t.mf.toLowerCase().includes(q) && !t.desc.toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  const dotClass = s => s.status === 'analyzed' ? 'done' : s.status === 'loading' ? 'loading' : s.status === 'error' ? 'error' : '';
+
+  list.innerHTML = tools.map(t => {
+    const s = state[t.tool];
+    return `<div class="tool-item ${activeTool === t.tool ? 'active' : ''}" onclick="showDetail('${t.tool}')">
+      <div class="tool-status-dot ${dotClass(s)}"></div>
+      <div class="tool-info">
+        <div class="tool-id">${t.tool}</div>
+        <div class="tool-mf">${t.mf}</div>
+      </div>
+      <div class="tool-badge ${s.file ? 'matched' : 'unmatched'}">${s.file ? 'PDF ✓' : 'ממתין'}</div>
+    </div>`;
+  }).join('');
+}
+
+function showDetail(toolId) {
+  activeTool = toolId;
+  renderList();
+  const s = state[toolId];
+  const main = document.getElementById('main-content');
+
+  if (s.status === 'loading') {
+    main.innerHTML = `<div class="detail-card"><div class="analyzing-state"><div class="spinner"></div>מנתח תעודת כיול עבור ${toolId}...</div></div>`;
+    return;
+  }
+
+  let inner = `
+    <div class="detail-card">
+      <div class="detail-header">
+        <div>
+          <div class="detail-tool-id">${s.tool}</div>
+          <div class="detail-desc">${s.desc}</div>
+        </div>
+        <div class="detail-mf">${s.mf}</div>
+      </div>
+      <div class="detail-grid">
+        <div class="detail-field"><div class="detail-label">תאריך כיול</div><div class="detail-value">${s.calDate || s.date}</div></div>
+        <div class="detail-field"><div class="detail-label">תעודה</div><div class="detail-value">${s.file ? s.file.name : '—'}</div></div>
+      </div>`;
+
+  if (s.status === 'analyzed' && s.deviation) {
+    inner += `<div class="deviation-section">
+      <div class="deviation-title">⚠ חריגה שנמצאה</div>
+      <div class="deviation-text">${s.deviation}</div>
+    </div>`;
+  }
+
+  if (!s.file) {
+    inner += `<div style="text-align:center;padding:1.5rem;color:var(--text-muted);font-size:13px">
+      אין תעודת כיול מועלית לכלי זה<br>
+      <button class="action-btn" style="margin-top:0.75rem" onclick="document.getElementById('single-upload-${toolId}').click()">העלה PDF</button>
+      <input type="file" id="single-upload-${toolId}" accept=".pdf" style="display:none" onchange="singleUpload(event,'${toolId}')">
+    </div>`;
+  }
+
+  inner += `</div>`;
+
+  if (s.status === 'analyzed') {
+    inner += `<div class="detail-card">
+      <div class="message-label">הודעה מוכנה להזנה ב-MF</div>
+      <div class="message-box" id="msg-box">${buildMessage(toolId)}</div>
+      <div class="action-row" style="margin-top:0.75rem">
+        <button class="action-btn primary" onclick="copyMsg('${toolId}',this)">העתק הודעה</button>
+        <button class="action-btn" onclick="analyzeSingle('${toolId}')">נתח שוב</button>
+      </div>
+    </div>`;
+  } else if (s.file && s.status === 'matched') {
+    inner += `<div class="detail-card" style="text-align:center">
+      <button class="action-btn primary" onclick="analyzeSingle('${toolId}')">נתח תעודה זו</button>
+    </div>`;
+  }
+
+  if (unmatchedFiles.length > 0) {
+    inner += `<div class="unmatched-panel">
+      <div class="unmatched-title">קבצים שלא זוהו (${unmatchedFiles.length})</div>
+      <div class="unmatched-list">${unmatchedFiles.join('<br>')}</div>
+    </div>`;
+  }
+
+  main.innerHTML = inner;
+}
+
+async function singleUpload(e, toolId) {
+  const file = e.target.files[0];
+  if (!file) return;
+  state[toolId].file = file;
+  state[toolId].base64 = await toBase64(file);
+  state[toolId].status = 'matched';
+  updateStats();
+  renderList();
+  showDetail(toolId);
+  document.getElementById('analyze-btn').disabled = false;
+}
+
+async function analyzeSingle(toolId) {
+  state[toolId].status = 'loading';
+  showDetail(toolId);
+  await analyzePDF(toolId);
+  updateStats();
+  renderList();
+  showDetail(toolId);
+}
+
+function copyMsg(toolId, btn) {
+  navigator.clipboard.writeText(buildMessage(toolId));
+  btn.textContent = 'הועתק!';
+  btn.classList.add('success-state');
+  setTimeout(() => { btn.textContent = 'העתק הודעה'; btn.classList.remove('success-state'); }, 2000);
+}
+
+// Init
+renderList();
+</script>
+</body>
+</html>
